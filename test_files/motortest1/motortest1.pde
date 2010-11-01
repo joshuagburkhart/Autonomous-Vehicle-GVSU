@@ -35,8 +35,8 @@ void loop() {
    mturn(RIGHT,1200);
    straight(AHEAD,250,2000);
    mturn(RIGHT,1200);
-   stp();
-   delay(5000);
+   stp(5000);
+
 }//end loop function
 
 /*
@@ -96,10 +96,12 @@ int safestop(int msecs){
 
 /*
   Stop both motors
+  @msecs - the number of miliseconds to stop for
 */
 int stp(){
   rmotor.run(RELEASE);
   lmotor.run(RELEASE);
+  delay(msecs);
   return 0;
 }//end mstop function
 
