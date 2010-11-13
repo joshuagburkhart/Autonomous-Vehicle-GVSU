@@ -135,3 +135,21 @@ int mturn(int direction,int msecs){
   delay(msecs);
   return 0;
 }//end turn function
+
+/*
+  Read information from the serial port
+*/
+char* readFromSerial() { //main loop
+
+    char* serialString;
+
+    if (Serial.available() > 0) { //if there is anything on the serial port, read it
+        serialString = Serial.read(); //store it in the serialString variable
+    }//end if
+    if (atoi(serialString) > 0) { //if we read something
+        //validate read (it may be a read with poor signal)
+        //if(valid read)
+          //return string for calculation of direction
+    }//end if
+}//end readFromSerial function
+
