@@ -5,10 +5,11 @@ int rspeed,lspeed;
 int HMC6352Address = 0x42;
 int slaveAddress;
 int ledPin = 13;
-int i, headingValue;
+int i, headingValue, avgHeadingValue;
 byte headingData[2];
 boolean ledState = false;
-static int RIGHT = 0,LEFT = 1,AHEAD = 0, BACK = 1;
+static int RIGHT = 0,LEFT = 1,AHEAD = 0, BACK = 1, NORTH = 270, EAST = 0, SOUTH = 90, WEST = 180;
+static int TOLERANCE = 20;
 AF_DCMotor rmotor(4),lmotor(3);//right motor, left motor
 
 /*
@@ -43,38 +44,75 @@ void loop(){
   */
   
   blinkLed();
-  getCmpData();
   setHeading();
+  turnToHeading(NORTH);
   printHeading();
+  straight(AHEAD,250,5000);
  
 }//end loop function
+
+/*
+  Turn the vehicle toward the direction
+  @dir - the direction in which to turn 
+*/
+void turnToHeading(int dir){
+  int msHeading = (avgHeading / 10);//divide for most significant digits of heading
+          
+  while((abs(msHeading - dir) > TOLERANCE){//while current heading is not close to dir
+    
+    //do a little b.a.
+    boolean A = dir > 180,
+            B = msHeading > (dir - 180),
+            C = msHeading < dir,
+            D = msHeading < (dir + 180);
+          
+    if((A && B && C) || (!A && (!D || C))){//if current heading is left of dir
+      //turn right in small increment
+      mturn(RIGHT,400);
+    }//end if
+    else{//current heading is right of dir
+      //turn left in small increment
+      mturn(LEFT,400);
+    }//end else
+    //reset current heading
+    setHeading();
+    msHeading = (avgHeading / 10);
+  }//end while
+}//end turnToHeading function
 
 /*
   Print the current heading to the serial port
 */
 void printHeading(){
   Serial.print("Current heading: ");
-  Serial.print(int (headingValue / 10));     // The whole number part of the heading
+  Serial.print(int (headingValue / 10));     //whole number part of the heading
   Serial.print(".");
-  Serial.print(int (headingValue % 10));     // The fractional part of the heading
+  Serial.print(int (headingValue % 10));     //fractional part of the heading
   Serial.println(" degrees");
 }//end printHeading function
 
 /*
   Read the 2 heading bytes, MSB first
-  The resulting 16bit word is the compass heading in 10th's of a degree
-  For example: a heading of 1345 would be 134.5 degrees
+  The resulting 16 bit word is the compass heading in 10th's of a degree
+  ex: a heading of 1345 == 134.5 degrees
+  do 10 times and divide for avg heading
 */
 void setHeading(){
-    Wire.requestFrom(slaveAddress, 2);        // Request the 2 byte heading (MSB comes first)
-  i = 0;
-  while(Wire.available() && i < 2)
-  { 
-    headingData[i] = Wire.receive();
-    i++;
-  }
-
-  headingValue = headingData[0]*256 + headingData[1];  // Put the MSB and LSB together
+  avgHeadingValue = 0;
+  int k;
+  for(k = 0; k < 10; k++){
+    getCmpData();
+    Wire.requestFrom(slaveAddress, 2);        //request 2 byte heading (MSB comes first)
+    i = 0;
+    while(Wire.available() && i < 2)
+    { 
+      headingData[i] = Wire.receive();
+      i++;
+    }//end while
+    headingValue = headingData[0]*256 + headingData[1];  //put MSB and LSB together
+    avgHeadingValue += headingValue;
+  }//end for
+  avgHeadingValue = (avgHeadingValue / 10);
 }//end setHeading function
 
 /*
@@ -111,6 +149,9 @@ void getCmpData(void){
   @msecs - the number of miliseconds to spend traveling
 */
 int straight(int direction,int speed,int msecs){
+  //stop
+  rmotor.run(RELEASE);
+  lmotor.run(RELEASE);
   if(speed > 0 && speed < 256){//if the speed is valid
     rmotor.setSpeed(speed);
     lmotor.setSpeed(speed);
@@ -137,6 +178,9 @@ int straight(int direction,int speed,int msecs){
     Serial.print("' invalid.\n");
     return 1;
   }//end else
+  //stop
+  rmotor.run(RELEASE);
+  lmotor.run(RELEASE);
   return 0;
 }//end straight function
 /*
@@ -176,7 +220,10 @@ int stp(){
   @msecs - the number of miliseconds to turn for
 */
 int mturn(int direction,int msecs){
-  //set motor speed to ~40%
+  //stop
+  rmotor.run(RELEASE);
+  lmotor.run(RELEASE);
+  //set motor speed to ~80%
   rspeed = 200;
   lspeed = 200;
   rmotor.setSpeed(rspeed);
@@ -198,6 +245,9 @@ int mturn(int direction,int msecs){
     return 1;
   }//end else
   delay(msecs);
+  //stop
+  rmotor.run(RELEASE);
+  lmotor.run(RELEASE);
   return 0;
 }//end turn function
 
