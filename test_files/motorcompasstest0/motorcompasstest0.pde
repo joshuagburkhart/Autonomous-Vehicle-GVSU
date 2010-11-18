@@ -1,16 +1,27 @@
 #include <Wire.h>
 #include <AFMotor.h>
 
-int rspeed,lspeed;
-int HMC6352Address = 0x42;
-int slaveAddress;
-int ledPin = 13;
-int i, headingValue, avgHeadingValue;
-byte headingData[2];
-boolean ledState = false;
-static int RIGHT = 0,LEFT = 1,AHEAD = 0, BACK = 1, NORTH = 270, EAST = 0, SOUTH = 90, WEST = 180;
-static int TOLERANCE = 20;
-AF_DCMotor rmotor(4),lmotor(3);//right motor, left motor
+int         rspeed,
+            lspeed,
+            HMC6352Address = 0x42,
+            slaveAddress,
+            ledPin         = 13,
+            i,
+            headingValue,
+            avgHeadingValue;
+byte        headingData[2];
+boolean     ledState       = false;
+static int  RIGHT          = 0,
+            LEFT           = 1,
+            AHEAD          = 0,
+            BACK           = 1,
+            EAST           = 0,
+            SOUTH          = 90,
+            WEST           = 180,
+            NORTH          = 270,
+            TOLERANCE      = 20;
+AF_DCMotor  rmotor(4),
+            lmotor(3);//right motor, left motor
 
 /*
   Shift the device's documented slave address (0x42) 1 bit right
@@ -53,30 +64,27 @@ void loop(){
 
 /*
   Turn the vehicle toward the direction
-  @dir - the direction in which to turn 
+  @toHeading - the direction in which to turn 
 */
-void turnToHeading(int dir){
-  int msHeading = (avgHeading / 10);//divide for most significant digits of heading
+void turnToHeading(int toHeading){
+  int fromHeading = (avgHeading / 10);//divide for most significant digits of heading
           
-  while((abs(msHeading - dir) > TOLERANCE){//while current heading is not close to dir
+  while((abs(fromHeading - toHeading) > TOLERANCE){//while current heading is not "close" to toHeading
     
-    //do a little b.a.
-    boolean A = dir > 180,
-            B = msHeading > (dir - 180),
-            C = msHeading < dir,
-            D = msHeading < (dir + 180);
+    int right = (toHeading - fromHeading) % 360,
+        left  = (fromHeading - toHeading) % 360;
           
-    if((A && B && C) || (!A && (!D || C))){//if current heading is left of dir
+    if(right > left){//if fromHeading is left of toHeading
       //turn right in small increment
       mturn(RIGHT,400);
     }//end if
-    else{//current heading is right of dir
+    else{//fromHeading is right of toHeading
       //turn left in small increment
       mturn(LEFT,400);
     }//end else
     //reset current heading
     setHeading();
-    msHeading = (avgHeading / 10);
+    fromHeading = (avgHeading / 10);
   }//end while
 }//end turnToHeading function
 
