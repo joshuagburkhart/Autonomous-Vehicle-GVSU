@@ -92,7 +92,8 @@ int mod(int x, int m) {
 */
 void turnToHeading(int toHeading){
 
-  int fromHeading = (avgHeadingValue / 10);//divide for most significant digits of heading
+  int numTurns = 0,
+      fromHeading = (avgHeadingValue / 10);//divide for most significant digits of heading
           
   while((abs(fromHeading - toHeading) > TOLERANCE)){//while current heading is not "close" to toHeading
     printHeading();
@@ -112,16 +113,17 @@ void turnToHeading(int toHeading){
     if(right > left){//if fromHeading is left of toHeading
       Serial.print("Turn right!\n");
       //turn right in small increment
-      mturn(RIGHT, (left * 4) + 60);
+      mturn(RIGHT, (left * abs(15 - numTurns)));
     }//end if
     else{//fromHeading is right of toHeading
       Serial.print("Turn left!\n");
       //turn left in small increment
-      mturn(LEFT, (right * 4) + 60);
+      mturn(LEFT, (right * abs(15 - numTurns)));
     }//end else
     //reset current heading
     setHeading(25); //wait 25ms between readings
     fromHeading = (avgHeadingValue / 10);
+    numTurns = (numTurns + 1);
   }//end while
 }//end turnToHeading function
 
