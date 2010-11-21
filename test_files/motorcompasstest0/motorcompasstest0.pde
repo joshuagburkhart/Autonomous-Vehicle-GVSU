@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <AFMotor.h>
+#include <math.h>
 
 int         rspeed,
             lspeed,
@@ -19,7 +20,7 @@ static int  RIGHT          = 0,
             SOUTH          = 90,
             WEST           = 180,
             NORTH          = 270,
-            TOLERANCE      = 20;
+            TOLERANCE      = 10;
 AF_DCMotor  rmotor(4),
             lmotor(3);//right motor, left motor
 
@@ -63,28 +64,49 @@ void loop(){
 }//end loop function
 
 /*
+  This function replaces the under-powered '%' function
+  @return - the result of (x mod m)
+*/
+int mod(int x, int m) {
+    return (x%m + m)%m;
+}//end mod function
+
+/*
   Turn the vehicle toward the direction
   @toHeading - the direction in which to turn 
 */
 void turnToHeading(int toHeading){
-  int fromHeading = (avgHeading / 10);//divide for most significant digits of heading
+
+  int fromHeading = (avgHeadingValue / 10);//divide for most significant digits of heading
           
-  while((abs(fromHeading - toHeading) > TOLERANCE){//while current heading is not "close" to toHeading
+  while((abs(fromHeading - toHeading) > TOLERANCE)){//while current heading is not "close" to toHeading
+    printHeading();
+    int left = mod((toHeading - fromHeading),360),
+        right  = mod((fromHeading - toHeading),360);
+          
+    Serial.print("toHeading: ");
+    Serial.print(toHeading);
+    Serial.print("\nfromHeading: ");
+    Serial.print(fromHeading);
+    Serial.print("\nright: ");
+    Serial.print(right);
+    Serial.print("\nleft: ");
+    Serial.print(left);
+    Serial.print("\n");
     
-    int right = (toHeading - fromHeading) % 360,
-        left  = (fromHeading - toHeading) % 360;
-          
     if(right > left){//if fromHeading is left of toHeading
+      Serial.print("Turn right!\n");
       //turn right in small increment
       mturn(RIGHT,400);
     }//end if
     else{//fromHeading is right of toHeading
+      Serial.print("Turn left!\n");
       //turn left in small increment
       mturn(LEFT,400);
     }//end else
     //reset current heading
     setHeading();
-    fromHeading = (avgHeading / 10);
+    fromHeading = (avgHeadingValue / 10);
   }//end while
 }//end turnToHeading function
 
@@ -118,8 +140,10 @@ void setHeading(){
       i++;
     }//end while
     headingValue = headingData[0]*256 + headingData[1];  //put MSB and LSB together
-    avgHeadingValue += headingValue;
+    avgHeadingValue = abs(avgHeadingValue + headingValue);
   }//end for
+  Serial.print(avgHeadingValue);
+  Serial.print("\n");
   avgHeadingValue = (avgHeadingValue / 10);
 }//end setHeading function
 
@@ -197,7 +221,7 @@ int straight(int direction,int speed,int msecs){
 */
 int safestop(int msecs){
   if(msecs < 100){//if little time is left
-    stp();
+    stp(msecs);
   }//end if
   else{
     //cut speed in half
@@ -215,7 +239,7 @@ int safestop(int msecs){
   Stop both motors
   @msecs - the number of miliseconds to stop for
 */
-int stp(){
+int stp(int msecs){
   rmotor.run(RELEASE);
   lmotor.run(RELEASE);
   delay(msecs);
@@ -262,14 +286,14 @@ int mturn(int direction,int msecs){
 /*
   Read information from the serial port
 */
-char readFromSerial() { //main loop
+int readFromSerial() { //main loop
 
-    char serialString;
+    int serialString;
 
     if (Serial.available() > 0) { //if there is anything on the serial port, read it
         serialString = Serial.read(); //store it in the serialString variable
     }//end if
-    if (atoi(serialString) > 0) { //if we read something
+    if (serialString > 0) { //if we read something
         //validate read (it may be a read with poor signal)
         //if(valid read)
           //return string for calculation of direction
