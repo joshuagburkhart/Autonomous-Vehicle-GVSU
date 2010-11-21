@@ -1,6 +1,12 @@
+/*
+@title - motorcompasstest0
+@dscrp - This code contains functions that integrate arduino compass control and motors in order to help navigate a rover.
+@author - Joshua Burkhart
+@version - 11/20/2010
+*/
+
 #include <Wire.h>
 #include <AFMotor.h>
-#include <math.h>
 
 int         rspeed,
             lspeed,
@@ -16,11 +22,15 @@ static int  RIGHT          = 0,
             LEFT           = 1,
             AHEAD          = 0,
             BACK           = 1,
-            EAST           = 0,
-            SOUTH          = 90,
-            WEST           = 180,
-            NORTH          = 270,
-            TOLERANCE      = 10;
+            EAST           = 180, //degrees dependant of orientation of device relative to motors
+            SOUTHEAST      = 225,
+            SOUTH          = 270,
+            SOUTHWEST      = 315,
+            WEST           = 0,
+            NORTHWEST      = 45,
+            NORTH          = 90,
+            NORTHEAST      = 135,
+            TOLERANCE      = 5;  //determines the accuracy required by device
 AF_DCMotor  rmotor(4),
             lmotor(3);//right motor, left motor
 
@@ -42,24 +52,29 @@ void setup(){
 */
 void loop(){
   
-  /*
-   //testing turns
-   straight(AHEAD,250,2000);
-   mturn(RIGHT,1200);
-   straight(AHEAD,250,2000);
-   mturn(RIGHT,1200);
-   straight(AHEAD,250,2000);
-   mturn(RIGHT,1200);
-   straight(AHEAD,250,2000);
-   mturn(RIGHT,1200);
-   stp(5000);
-  */
+  //east
+  setHeading(0);
+  turnToHeading(EAST);
+  printHeading();
+  straight(AHEAD,250,3000);
   
-  blinkLed();
-  setHeading();
+  //south
+  setHeading(0);
+  turnToHeading(SOUTH);
+  printHeading();
+  straight(AHEAD,250,3000);
+  
+  //west
+  setHeading(0);
+  turnToHeading(WEST);
+  printHeading();
+  straight(AHEAD,250,3000);
+  
+  //north
+  setHeading(0);
   turnToHeading(NORTH);
   printHeading();
-  straight(AHEAD,250,5000);
+  straight(AHEAD,250,3000);
  
 }//end loop function
 
@@ -81,8 +96,8 @@ void turnToHeading(int toHeading){
           
   while((abs(fromHeading - toHeading) > TOLERANCE)){//while current heading is not "close" to toHeading
     printHeading();
-    int left = mod((toHeading - fromHeading),360),
-        right  = mod((fromHeading - toHeading),360);
+    int left  = mod((toHeading - fromHeading),360),
+        right = mod((fromHeading - toHeading),360);
           
     Serial.print("toHeading: ");
     Serial.print(toHeading);
@@ -97,15 +112,15 @@ void turnToHeading(int toHeading){
     if(right > left){//if fromHeading is left of toHeading
       Serial.print("Turn right!\n");
       //turn right in small increment
-      mturn(RIGHT,400);
+      mturn(RIGHT, (left * 4) + 60);
     }//end if
     else{//fromHeading is right of toHeading
       Serial.print("Turn left!\n");
       //turn left in small increment
-      mturn(LEFT,400);
+      mturn(LEFT, (right * 4) + 60);
     }//end else
     //reset current heading
-    setHeading();
+    setHeading(25); //wait 25ms between readings
     fromHeading = (avgHeadingValue / 10);
   }//end while
 }//end turnToHeading function
@@ -126,8 +141,9 @@ void printHeading(){
   The resulting 16 bit word is the compass heading in 10th's of a degree
   ex: a heading of 1345 == 134.5 degrees
   do 10 times and divide for avg heading
+  @msecs - the number of miliseconds to wait between compass readings
 */
-void setHeading(){
+void setHeading(int msecs){
   avgHeadingValue = 0;
   int k;
   for(k = 0; k < 10; k++){
@@ -141,6 +157,7 @@ void setHeading(){
     }//end while
     headingValue = headingData[0]*256 + headingData[1];  //put MSB and LSB together
     avgHeadingValue = abs(avgHeadingValue + headingValue);
+    delay(msecs);
   }//end for
   Serial.print(avgHeadingValue);
   Serial.print("\n");
@@ -182,8 +199,7 @@ void getCmpData(void){
 */
 int straight(int direction,int speed,int msecs){
   //stop
-  rmotor.run(RELEASE);
-  lmotor.run(RELEASE);
+  stp(0);
   if(speed > 0 && speed < 256){//if the speed is valid
     rmotor.setSpeed(speed);
     lmotor.setSpeed(speed);
@@ -211,8 +227,7 @@ int straight(int direction,int speed,int msecs){
     return 1;
   }//end else
   //stop
-  rmotor.run(RELEASE);
-  lmotor.run(RELEASE);
+  stp(0);
   return 0;
 }//end straight function
 /*
@@ -253,8 +268,7 @@ int stp(int msecs){
 */
 int mturn(int direction,int msecs){
   //stop
-  rmotor.run(RELEASE);
-  lmotor.run(RELEASE);
+  stp(0);
   //set motor speed to ~80%
   rspeed = 200;
   lspeed = 200;
@@ -278,8 +292,7 @@ int mturn(int direction,int msecs){
   }//end else
   delay(msecs);
   //stop
-  rmotor.run(RELEASE);
-  lmotor.run(RELEASE);
+  stp(0);
   return 0;
 }//end turn function
 
