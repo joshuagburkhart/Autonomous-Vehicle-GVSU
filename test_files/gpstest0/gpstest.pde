@@ -1,5 +1,8 @@
-// A simple sketch to read GPS data and parse the $GPRMC string 
-// see http://www.ladyada.net/make/gpsshield for more info
+/*
+* A simple sketch that pulls a $GPRMC string from the arduino GPS shield
+* and responds with this string over serial when requested.
+* Date: 11/22/2010
+*/
 
 #include <NewSoftSerial.h>
 
@@ -13,13 +16,8 @@ NewSoftSerial mySerial =  NewSoftSerial(2, 3);
 // GPS parser for 406a
 #define BUFFSIZ 90 // plenty big
 char buffer[BUFFSIZ];
-char *parseptr;
 char buffidx;
-uint8_t hour, minute, second, year, month, date;
-uint32_t latitude, longitude;
-uint8_t groundspeed, trackangle;
-char latdir, longdir;
-char status;
+char signal;
 
 void setup() 
 { 
@@ -29,9 +27,6 @@ void setup()
   pinMode(13, OUTPUT);
   Serial.begin(GPSRATE);
   mySerial.begin(GPSRATE);
-   
-  // prints title with ending line break 
-  Serial.println("GPS parser"); 
  
    digitalWrite(powerpin, LOW);         // pull low to turn on!
 } 
@@ -39,106 +34,31 @@ void setup()
  
 void loop() 
 { 
-  uint32_t tmp;
-  
-  Serial.print("\n\rread: ");
-  readline();
-  
-  // check if $GPRMC (global positioning fixed data)
-  if (strncmp(buffer, "$GPRMC",6) == 0) {
-    
-    // hhmmss time data
-    parseptr = buffer+7;
-    tmp = parsedecimal(parseptr); 
-    hour = tmp / 10000;
-    minute = (tmp / 100) % 100;
-    second = tmp % 100;
-    
-    parseptr = strchr(parseptr, ',') + 1;
-    status = parseptr[0];
-    parseptr += 2;
-    
-    // grab latitude & long data
-    // latitude
-    latitude = parsedecimal(parseptr);
-    if (latitude != 0) {
-      latitude *= 10000;
-      parseptr = strchr(parseptr, '.')+1;
-      latitude += parsedecimal(parseptr);
-    }
-    parseptr = strchr(parseptr, ',') + 1;
-    // read latitude N/S data
-    if (parseptr[0] != ',') {
-      latdir = parseptr[0];
-    }
-    
-    //Serial.println(latdir);
-    
-    // longitude
-    parseptr = strchr(parseptr, ',')+1;
-    longitude = parsedecimal(parseptr);
-    if (longitude != 0) {
-      longitude *= 10000;
-      parseptr = strchr(parseptr, '.')+1;
-      longitude += parsedecimal(parseptr);
-    }
-    parseptr = strchr(parseptr, ',')+1;
-    // read longitude E/W data
-    if (parseptr[0] != ',') {
-      longdir = parseptr[0];
-    }
-    
-
-    // groundspeed
-    parseptr = strchr(parseptr, ',')+1;
-    groundspeed = parsedecimal(parseptr);
-
-    // track angle
-    parseptr = strchr(parseptr, ',')+1;
-    trackangle = parsedecimal(parseptr);
-
-
-    // date
-    parseptr = strchr(parseptr, ',')+1;
-    tmp = parsedecimal(parseptr); 
-    date = tmp / 10000;
-    month = (tmp / 100) % 100;
-    year = tmp % 100;
-    
-    Serial.print("\nTime: ");
-    Serial.print(hour, DEC); Serial.print(':');
-    Serial.print(minute, DEC); Serial.print(':');
-    Serial.println(second, DEC);
-    Serial.print("Date: ");
-    Serial.print(month, DEC); Serial.print('/');
-    Serial.print(date, DEC); Serial.print('/');
-    Serial.println(year, DEC);
-    
-    Serial.print("Lat: "); 
-    if (latdir == 'N')
-       Serial.print('+');
-    else if (latdir == 'S')
-       Serial.print('-');
-
-    Serial.print(latitude/1000000, DEC); Serial.print('\°', BYTE); Serial.print(' ');
-    Serial.print((latitude/10000)%100, DEC); Serial.print('\''); Serial.print(' ');
-    Serial.print((latitude%10000)*6/1000, DEC); Serial.print('.');
-    Serial.print(((latitude%10000)*6/10)%100, DEC); Serial.println('"');
-   
-    Serial.print("Long: ");
-    if (longdir == 'E')
-       Serial.print('+');
-    else if (longdir == 'W')
-       Serial.print('-');
-    Serial.print(longitude/1000000, DEC); Serial.print('\°', BYTE); Serial.print(' ');
-    Serial.print((longitude/10000)%100, DEC); Serial.print('\''); Serial.print(' ');
-    Serial.print((longitude%10000)*6/1000, DEC); Serial.print('.');
-    Serial.print(((longitude%10000)*6/10)%100, DEC); Serial.println('"');
-   
+  parseGps();
+  // send data only when data is requested:
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    signal = Serial.read();
   }
-  //Serial.println(buffer);
 }
 
+/* Parses the $GPRMC string to ensure that it is valid */
+void parseGps() {
+  readline();
+  // check if $GPRMC (global positioning fixed data)
+  if (strncmp(buffer, "$GPRMC",6) == 0) {
+    if (buffer[18] == 'A') {
+      if (signal == '1') {
+        Serial.println(buffer);
+        signal = '0';    // Set signal back to zero
+      }
+    }
+  }
+}
+
+/*
+* Custom function for parsing a decimal value from a string
+*/
 uint32_t parsedecimal(char *str) {
   uint32_t d = 0;
   
@@ -152,6 +72,9 @@ uint32_t parsedecimal(char *str) {
   return d;
 }
 
+/*
+* Read the line from the GPS module and place it in buffer[]
+*/
 void readline(void) {
   char c;
   
@@ -160,7 +83,6 @@ void readline(void) {
       c=mySerial.read();
       if (c == -1)
         continue;
-      Serial.print(c);
       if (c == '\n')
         continue;
       if ((buffidx == BUFFSIZ-1) || (c == '\r')) {
