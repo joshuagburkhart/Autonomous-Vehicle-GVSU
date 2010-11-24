@@ -8,7 +8,8 @@
 #include <Wire.h>
 #include <AFMotor.h>
 
-int         rspeed,
+int         irReading,
+            rspeed,
             lspeed,
             HMC6352Address = 0x42,
             slaveAddress,
@@ -18,7 +19,8 @@ int         rspeed,
             avgHeadingValue;
 byte        headingData[2];
 boolean     ledState       = false;
-static int  RIGHT          = 0,
+static int  VRATING        = 200,
+            RIGHT          = 0,
             LEFT           = 1,
             AHEAD          = 0,
             BACK           = 1,
@@ -52,31 +54,44 @@ void setup(){
 */
 void loop(){
   
-  //east
-  setHeading(0);
-  turnToHeading(EAST);
-  printHeading();
-  straight(AHEAD,250,3000);
+  int k;
+  for(k = 0; k < 4; k++){
   
-  //south
   setHeading(0);
-  turnToHeading(SOUTH);
+  turnToHeading(k * 90);
   printHeading();
-  straight(AHEAD,250,3000);
-  
-  //west
-  setHeading(0);
-  turnToHeading(WEST);
-  printHeading();
-  straight(AHEAD,250,3000);
-  
-  //north
-  setHeading(0);
-  turnToHeading(NORTH);
-  printHeading();
-  straight(AHEAD,250,3000);
+  if(getIrReading(10, 100) < VRATING){//if we are close to something
+    straight(AHEAD,250,3000);
+  }//end if
+
+  }//end for
  
 }//end loop function
+
+/*
+  This function sets and returns the voltage read by analog pin 0
+  @return - the integer interpretation of analog 0's volatage
+*/
+int ir(){
+  irReading = analogRead(0);
+  return irReading;
+}//end ir function
+
+/*
+  This function returns an average reading from ir sensor
+  @param n - the number of samples to take
+  @param msecs - the amount of miliseconds to wait
+  @return - the average reading of the samples
+*/
+int getIrReading(int n, int msecs){
+  int p,
+      avg = 0;
+  for(p = 0; p < n; p++){
+    delay(msecs);
+    avg = (avg + ir());
+  }//end for
+  return (avg / n);
+}//end getIrReading function
 
 /*
   This function replaces the under-powered '%' function
@@ -100,7 +115,9 @@ void turnToHeading(int toHeading){
     int left  = mod((toHeading - fromHeading),360),
         right = mod((fromHeading - toHeading),360);
           
-    Serial.print("toHeading: ");
+    Serial.print("val ----------------> ");
+    Serial.print(ir());
+    Serial.print("\ntoHeading: ");
     Serial.print(toHeading);
     Serial.print("\nfromHeading: ");
     Serial.print(fromHeading);
@@ -121,7 +138,7 @@ void turnToHeading(int toHeading){
       mturn(LEFT, (right * abs(15 - numTurns)));
     }//end else
     //reset current heading
-    setHeading(25); //wait 25ms between readings
+    setHeading(10); //wait 10ms between readings
     fromHeading = (avgHeadingValue / 10);
     numTurns = (numTurns + 1);
   }//end while
@@ -146,6 +163,7 @@ void printHeading(){
   @msecs - the number of miliseconds to wait between compass readings
 */
 void setHeading(int msecs){
+  delay(500); //wait for compass readings to settle
   avgHeadingValue = 0;
   int k;
   for(k = 0; k < 10; k++){
