@@ -19,10 +19,12 @@ int         fromHeading,
             ledPin         = 13,
             i,
             headingValue,
+            emergencyDir = 0,
             headingArray[8],
             avgHeadingValue;
 double      latArray[10],       //-90 is South, +90 is North
-            longArray[10];      //-180 is West, +180 is East
+            longArray[10],      //-180 is West, +180 is East
+            wayPoint[2];        //holds the latitude in index 0 and longitude in index 1
 byte        headingData[2];
 boolean     ledState       = false;
 static int  RIGHT          = 0,
@@ -81,34 +83,56 @@ void setup(){
   Begin continuous loop
 */
 void loop(){
-  int    k,
-         emergencyDir = 0;
+  int    k;
   double dir;
   for(k = 0; k < 10; k++){//go through the lat and long arrays
+    setWaypoint();
     while(wayPointNotReached(k)){
       dir          = calcDirFromGPS(k);
-      emergencyDir = mod(emergencyDir + 90,360);
       setHeading(0);
       turnToHeading(dir);
       //printHeading();
-      safeStraight(10,10,AHEAD,250,50,-1);
+      safeStraight(10,10,AHEAD,250,50,-1,dir);
       straight(BACK,255,400);
       stp(0);
-      turnToHeading(emergencyDir);
-      safeStraight(10,10,AHEAD,250,50,10);
+      turnTillClear(150);
+      safeStraight(10,10,AHEAD,250,50,10,dir);
     }//end while
     delay(5000);
   }//end for
 }//end loop function
+
+void turnTillClear(int irThresh){
+  int irVal;
+  do{
+    mturn(emergencyDir,100);
+    irVal = getIrReading(10,10);
+  } while(irVal > irThresh); //end do while
+  emergencyDir = mod(emergencyDir + 1,2); //switch emergencyDir btwn RIGHT & LEFT
+}//end turnTillClear function
+
+/*
+  This function reads from the gps and sets the waypoint
+*/
+void setWaypoint(void){
+  int x = -1;      //this value is the trigger code for the gps device
+  double lat = 42.9633333,  //Grand Rapids' latitude is 42.9633333
+         lon = -85.6680556; //Grand Rapids' longitude is -85.6680556
+  Serial.print(x); //send the trigger code to gps
+  delay(1000);     //wait for response
+  if(Serial.available() > 0){ //if the gps responded to the trigger
+    
+  }//end if
+  wayPoint[0] = lat;
+  wayPoint[1] = lon;
+}//end setWaypoint function
 
 /*
   This function returns the current latitude of the device
   @return - the current latitude
 */
 double getCurrentLat(){
-  //TODO: parse serial communication and return
-  double lat = 42.9633333; //Grand Rapids' latitude is 42.9633333
-  return lat;  
+  return wayPoint[0];
 }//end getCurrentLat function
 
 /*
@@ -116,9 +140,7 @@ double getCurrentLat(){
   @return - the current longitude
 */
 double getCurrentLong(){
-  //TODO: parse serial communication and return
-  double lon = -85.6680556; //Grand Rapids' longitude is -85.6680556
-  return lon;
+  return wayPoint[1];
 }//end getCurrentLong function
 
 /*
@@ -130,10 +152,17 @@ double getCurrentLong(){
   @param msecss - the number of miliseconds to spend traveling
   @param reps   - max times to execute loop or -1 for infinity
 */
-void safeStraight(int n, int msecsi,int direc,int spd,int msecss,int reps){
-  int x = reps;
+void safeStraight(int n, int msecsi,int direc,int spd,int msecss,int reps,double dir){
+  int reset = 10,
+      x     = reps;
   while(getIrReading(n, msecsi) < IR_TOLERANCE || x == 0){//while we're not close to anything
+    if(reset == 0){
+      reset = 10;
+      setHeading(0);
+      turnToHeading(dir);
+    }//end if
     straight(direc,spd,msecss);
+    reset--;
     x--;
   }//end while
 }//end safeStraight function
