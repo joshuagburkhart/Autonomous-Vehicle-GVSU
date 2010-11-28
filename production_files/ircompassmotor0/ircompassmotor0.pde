@@ -81,14 +81,11 @@ void setup(){
   Begin continuous loop
 */
 void loop(){
-  Serial.print("beginning loop()\n");
-  int k,
-      dir,
-      emergencyDir = 0;
+  int    k,
+         emergencyDir = 0;
+  double dir;
   for(k = 0; k < 10; k++){//go through the lat and long arrays
-    Serial.print("beginning for()\n");
     while(wayPointNotReached(k)){
-      Serial.print("beginning while()\n");
       dir          = calcDirFromGPS(k);
       emergencyDir = mod(emergencyDir + 90,360);
       setHeading(0);
@@ -195,14 +192,29 @@ double distFromWayPoint(int wayPoint){
   @param wayPoint - the next waypoint
   @return - the distance from the next waypoint
 */
-int calcDirFromGPS(int wayPoint){
+double calcDirFromGPS(int wayPoint){
   double y1     = getCurrentLat(),
          y2     = latArray[wayPoint],
          x1     = getCurrentLong(),
          x2     = longArray[wayPoint];
-  int angle   = atan2((y2 - y1),(x2 - x1)),//gives +/- angle from x plane
-      bearing = mod(360 - angle,360);      //gives direction as 0 - 359 degrees
-  return bearing;
+  double angle     = atan2((y2 - y1),(x2 - x1)),//gives +/- angle from x plane
+         degree    = (angle * 180) / 3.14,      //convert radiens to degrees
+         bearing   = mod(360 - degree,360),     //gives direction as 0 - 359 degrees
+         mbearing  = mod(bearing + 180,360);    //maps the direction correctly for compass
+      
+      Serial.print("angle is --------------> ");
+      printDouble(angle,10000000);
+      Serial.print("\n");
+      Serial.print("degree is --------------> ");
+      printDouble(degree,10000000);
+      Serial.print("\n");
+      Serial.print("bearing is --------------> ");
+      printDouble(bearing,10000000);
+      Serial.print("\n");
+      Serial.print("mbearing is --------------> ");
+      printDouble(mbearing,10000000);
+      Serial.print("\n");
+  return mbearing;
 }//end calcDirFromGPS function
 
 /*
@@ -260,7 +272,7 @@ void turnToHeading(int ltoHeading){
     int left  = mod((toHeading - fromHeading),360),
         right = mod((fromHeading - toHeading),360);
           
-    Serial.print("val ----------------> ");
+    Serial.print("ir reading ----------------> ");
     Serial.print(ir());
     Serial.print("\ntoHeading: ");
     Serial.print(toHeading);
@@ -273,12 +285,12 @@ void turnToHeading(int ltoHeading){
     Serial.print("\n");
     
     if(right > left){//if fromHeading is left of toHeading
-      Serial.print("Turn right!\n");
+      Serial.print("Turn left!\n");
       //turn right in small increment
       mturn(RIGHT, (left * numTurns) + 50);
     }//end if
     else{//fromHeading is right of toHeading
-      Serial.print("Turn left!\n");
+      Serial.print("Turn right!\n");
       //turn left in small increment
       mturn(LEFT, (right * numTurns) + 50);
     }//end else
@@ -422,3 +434,19 @@ void getCmpData(void){
   delay(10);                   // The HMC6352 needs at least a 70us (microsecond) delay
                                // after this command.  Using 10ms just makes it safe 
 }//end getData function
+
+/*
+  prints val with number of decimal places determine by precision
+  NOTE: precision is 1 followed by the number of zeros for the desired number of decimial places
+  example: printDouble( 3.1415, 100); // prints 3.14 (two decimal places)
+*/
+void printDouble( double val, unsigned int precision){
+    Serial.print (int(val));  //prints the int part
+    Serial.print("."); // print the decimal point
+    unsigned int frac;
+    if(val >= 0)
+	  frac = (val - int(val)) * precision;
+    else
+	  frac = (int(val)- val ) * precision;
+    Serial.println(frac,DEC) ;
+}
