@@ -115,13 +115,22 @@ void turnTillClear(int irThresh){
   This function reads from the gps and sets the waypoint
 */
 void setWaypoint(void){
-  int x = -1;      //this value is the trigger code for the gps device
-  double lat = 42.9633333,  //Grand Rapids' latitude is 42.9633333
+  int x = -1,      //this value is the lat trigger code for gps
+      y = -2;      //this value is the lon trigger code for gps
+  double tmp,
+         lat = 42.9633333,  //Grand Rapids' latitude is 42.9633333
          lon = -85.6680556; //Grand Rapids' longitude is -85.6680556
-  Serial.print(x); //send the trigger code to gps
+  Serial.print(x); //send the lat trigger code to gps
   delay(1000);     //wait for response
-  if(Serial.available() > 0){ //if the gps responded to the trigger
-    
+  if(Serial.available() > 0){ //if the gps responded to trigger
+    tmp = Serial.read(); //expect a value like "429633333"
+    lat = (double) (tmp / (double) 10000000); //this will be wrong if tmp is
+  }//end if
+  Serial.print(y); //send the lon trigger code to gps
+  delay(1000);     //wait for response
+  if(Serial.available() > 0){ //if gps responded to trigger
+    tmp = Serial.read(); //expect a value like "-85.6680556"
+    lon = (double) (tmp / (double) 10000000); //this will be wrong if tmp is
   }//end if
   wayPoint[0] = lat;
   wayPoint[1] = lon;
