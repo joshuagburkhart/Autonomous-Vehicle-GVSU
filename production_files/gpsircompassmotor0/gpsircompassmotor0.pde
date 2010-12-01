@@ -24,7 +24,7 @@ int         fromHeading,
             avgHeadingValue;
 double      latArray[10],       //-90 is South, +90 is North
             longArray[10],      //-180 is West, +180 is East
-            wayPoint[2];        //holds the latitude in index 0 and longitude in index 1
+            curWayPoint[2];        //holds the current latitude in index 0 and current longitude in index 1
 byte        headingData[2];
 boolean     ledState       = false;
 static int  RIGHT          = 0,
@@ -83,20 +83,29 @@ void setup(){
   Begin continuous loop
 */
 void loop(){
-  int    k;
+  int    k,j;
   double dir;
-  for(k = 0; k < 10; k++){//go through the lat and long arrays
-    setWaypoint();
-    while(wayPointNotReached(k)){
-      dir          = calcDirFromGPS(k);
-      setHeading(0);
-      turnToHeading(dir);
-      //printHeading();
-      safeStraight(10,10,AHEAD,250,50,-1,dir);
-      straight(BACK,255,400);
-      stp(0);
-      turnTillClear(150);
-      safeStraight(10,10,AHEAD,250,50,10,dir);
+  for(k = 0; k < 10; k++){                        //go through the lat and long arrays
+    setCurWayPoint();                             //update the current waypoint
+    while(desiredWayPointNotReached(k)){          //while not desired waypoint has not been reached
+      while(getIrReading(10,10) < IR_TOLERANCE){  //while rover is not too close to an object
+        setCurWayPoint();                         //update the current waypoint
+        dir = calcDirFromGPS(k);                  //calculate the direction from the current waypoint to the desired waypoint
+        setCurHeading(0);                         //set the current heading
+        turnToHeading(dir);                       //turn the rover from the current heading to dir heading
+        straight(AHEAD,250,50);
+      }//end while
+      //begin evasive maneuvers
+      straight(BACK,255,500);                     //go straight back
+      stp(0);                                     //stop
+      turnTillClear(200);                         //turn until there is nothing blocking the rover's path
+      for(j = 0; j < 10; j++){                    //for a limited amount of time
+        if(getIrReading(10,10) < IR_TOLERANCE){   //check that nothing is infront of rover
+          stp(0);                                 //stop
+          break;                                    
+        }
+        straight(AHEAD,250,50);                   //travel straight
+      }//end for
     }//end while
     delay(5000);
   }//end for
@@ -114,7 +123,7 @@ void turnTillClear(int irThresh){
 /*
   This function reads from the gps and sets the waypoint
 */
-void setWaypoint(void){
+void setCurWayPoint(void){
   int x = -1,      //this value is the lat trigger code for gps
       y = -2;      //this value is the lon trigger code for gps
   double tmp,
@@ -129,19 +138,19 @@ void setWaypoint(void){
   Serial.print(y); //send the lon trigger code to gps
   delay(1000);     //wait for response
   if(Serial.available() > 0){ //if gps responded to trigger
-    tmp = Serial.read(); //expect a value like "-85.6680556"
+    tmp = Serial.read(); //expect a value like "-856680556"
     lon = (double) (tmp / (double) 10000000); //this will be wrong if tmp is
   }//end if
-  wayPoint[0] = lat;
-  wayPoint[1] = lon;
-}//end setWaypoint function
+  curWayPoint[0] = lat;
+  curWayPoint[1] = lon;
+}//end setCurWayPoint function
 
 /*
   This function returns the current latitude of the device
   @return - the current latitude
 */
 double getCurrentLat(){
-  return wayPoint[0];
+  return curWayPoint[0];
 }//end getCurrentLat function
 
 /*
@@ -149,7 +158,7 @@ double getCurrentLat(){
   @return - the current longitude
 */
 double getCurrentLong(){
-  return wayPoint[1];
+  return curWayPoint[1];
 }//end getCurrentLong function
 
 /*
@@ -167,7 +176,7 @@ void safeStraight(int n, int msecsi,int direc,int spd,int msecss,int reps,double
   while(getIrReading(n, msecsi) < IR_TOLERANCE || x == 0){//while we're not close to anything
     if(reset == 0){
       reset = 10;
-      setHeading(0);
+      setCurHeading(0);
       turnToHeading(dir);
     }//end if
     straight(direc,spd,msecss);
@@ -177,15 +186,15 @@ void safeStraight(int n, int msecsi,int direc,int spd,int msecss,int reps,double
 }//end safeStraight function
 
 /*
-  This function retuns false if device is not near its next waypoint
+  This function retuns false if device is not near its next desired waypoint
   @return - whether or not the device is near waypoint
 */
-boolean wayPointNotReached(int wayPoint){
+boolean desiredWayPointNotReached(int wayPoint){
   if(distFromWayPoint(wayPoint) < GPS_TOLERANCE){
     return false;
   }//end if
   return true;
-}//end wayPointNotReached function
+}//end desiredWayPointNotReached function
 
 /*
   This function calculates the distance from the next waypoint
@@ -325,15 +334,15 @@ void turnToHeading(int ltoHeading){
     if(right > left){//if fromHeading is left of toHeading
       Serial.print("Turn left!\n");
       //turn right in small increment
-      mturn(RIGHT, (left * numTurns) + 50);
+      mturn(LEFT, (left * numTurns) + 50);
     }//end if
     else{//fromHeading is right of toHeading
       Serial.print("Turn right!\n");
       //turn left in small increment
-      mturn(LEFT, (right * numTurns) + 50);
+      mturn(RIGHT, (right * numTurns) + 50);
     }//end else
     //reset current heading
-    setHeading(10); //wait 10ms between readings
+    setCurHeading(10); //wait 10ms between readings
     fromHeading = (avgHeadingValue / 10);
     numTurns    = (numTurns - 1);
     if(numTurns < 0){
@@ -360,7 +369,7 @@ void printHeading(){
   do 10 times and divide for avg heading
   @msecs - the number of miliseconds to wait between compass readings
 */
-void setHeading(int msecs){
+void setCurHeading(int msecs){
   avgHeadingValue = 0;
   int k;
   for(k = 0; k < 10; k++){
@@ -377,7 +386,7 @@ void setHeading(int msecs){
     delay(msecs);
   }//end for
   avgHeadingValue = (avgHeadingValue / 10);
-}//end setHeading function
+}//end setCurHeading function
 
 /*
   Travel straight
