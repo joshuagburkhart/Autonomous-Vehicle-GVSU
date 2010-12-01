@@ -31,13 +31,13 @@ static int  RIGHT          = 0,
             LEFT           = 1,
             AHEAD          = 0,
             BACK           = 1,
-            EAST           = 185,//180, //ideal degrees commented out, tuned degrees used
+            EAST           = 180,//180, //ideal degrees commented out, tuned degrees used
             SOUTHEAST      = 218,//225,
-            SOUTH          = 242,//270,
+            SOUTH          = 254,//270,
             SOUTHWEST      = 274,//315,
-            WEST           = 34,//0,
+            WEST           = 10,//0,
             NORTHWEST      = 100,//45,
-            NORTH          = 125,//90,
+            NORTH          = 120,//90,
             NORTHEAST      = 150,//135,
             IR_TOLERANCE   = 250, //determines the ir tolerance
             CMP_TOLERANCE  = 10,  //determines the compass tolerance
@@ -99,8 +99,8 @@ void loop(){
       straight(BACK,255,500);                     //go straight back
       stp(0);                                     //stop
       turnTillClear(200);                         //turn until there is nothing blocking the rover's path
-      for(j = 0; j < 10; j++){                    //for a limited amount of time
-        if(getIrReading(10,10) < IR_TOLERANCE){   //check that nothing is infront of rover
+      for(j = 0; j < 20; j++){                    //for a limited amount of time
+        if(getIrReading(10,10) > IR_TOLERANCE){   //check that nothing is infront of rover
           stp(0);                                 //stop
           break;                                    
         }
@@ -130,13 +130,13 @@ void setCurWayPoint(void){
          lat = 42.9633333,  //Grand Rapids' latitude is 42.9633333
          lon = -85.6680556; //Grand Rapids' longitude is -85.6680556
   Serial.print(x); //send the lat trigger code to gps
-  delay(1000);     //wait for response
+  delay(25);     //wait for response
   if(Serial.available() > 0){ //if the gps responded to trigger
     tmp = Serial.read(); //expect a value like "429633333"
     lat = (double) (tmp / (double) 10000000); //this will be wrong if tmp is
   }//end if
   Serial.print(y); //send the lon trigger code to gps
-  delay(1000);     //wait for response
+  delay(25);     //wait for response
   if(Serial.available() > 0){ //if gps responded to trigger
     tmp = Serial.read(); //expect a value like "-856680556"
     lon = (double) (tmp / (double) 10000000); //this will be wrong if tmp is
@@ -316,8 +316,8 @@ void turnToHeading(int ltoHeading){
           
   while((abs(fromHeading - toHeading) > CMP_TOLERANCE)){//while current heading is not "close" to toHeading
     printHeading();
-    int left  = mod((toHeading - fromHeading),360),
-        right = mod((fromHeading - toHeading),360);
+    int right = mod((toHeading - fromHeading),360),
+        left  = mod((fromHeading - toHeading),360);
           
     Serial.print("ir reading ----------------> ");
     Serial.print(ir());
