@@ -1,8 +1,9 @@
 /*
-@title - motorcompasstest0
-@dscrp - This code contains functions that integrate arduino compass control and motors in order to help navigate a rover.
-@author - Joshua Burkhart
-@version - 11/20/2010
+*@title   - gpsircompassmotor0
+*@dscrp   - This code contains functions that integrate several pieces of hardware in order to help navigate a rover.
+*           Specifically, it integrates a gps module, an ir sensor, an electronic compass, and a pair of motors.
+*@author  - Joshua Burkhart
+*@version - 12/7/2010
 */
 
 #include <Wire.h>
@@ -19,7 +20,7 @@ int         fromHeading,
             ledPin         = 13,
             i,
             headingValue,
-            emergencyDir = 0,
+            emergencyDir   = 0,
             headingArray[8],
             avgHeadingValue;
 double      latArray[10],       //-90 is South, +90 is North
@@ -31,7 +32,7 @@ static int  RIGHT          = 0,
             LEFT           = 1,
             AHEAD          = 0,
             BACK           = 1,
-            EAST           = 180,//180, //ideal degrees commented out, tuned degrees used
+            EAST           = 180,//180, //theoretical degrees commented out, experimentally-verified degrees used
             SOUTHEAST      = 218,//225,
             SOUTH          = 254,//270,
             SOUTHWEST      = 274,//315,
@@ -83,7 +84,8 @@ void setup(){
   Begin continuous loop
 */
 void loop(){
-  int    k,j;
+  int    k,
+         j;
   double dir;
   for(k = 0; k < 10; k++){                        //go through the lat and long arrays
     setCurWayPoint();                             //update the current waypoint
@@ -124,8 +126,8 @@ void turnTillClear(int irThresh){
   This function reads from the gps and sets the waypoint
 */
 void setCurWayPoint(void){
-  int x = -1,      //this value is the lat trigger code for gps
-      y = -2;      //this value is the lon trigger code for gps
+  int    x   = -1,      //this value is the lat trigger code for gps
+         y   = -2;      //this value is the lon trigger code for gps
   double tmp,
          lat = 42.9633333,  //Grand Rapids' latitude is 42.9633333
          lon = -85.6680556; //Grand Rapids' longitude is -85.6680556
@@ -240,10 +242,10 @@ double distFromWayPoint(int wayPoint){
   @return - the distance from the next waypoint
 */
 double calcDirFromGPS(int wayPoint){
-  double y1     = getCurrentLat(),
-         y2     = latArray[wayPoint],
-         x1     = getCurrentLong(),
-         x2     = longArray[wayPoint];
+  double y1        = getCurrentLat(),
+         y2        = latArray[wayPoint],
+         x1        = getCurrentLong(),
+         x2        = longArray[wayPoint];
   double angle     = atan2((y2 - y1),(x2 - x1)),//gives +/- angle from x plane
          degree    = (angle * 180) / 3.14,      //convert radiens to degrees
          bearing   = mod(360 - degree,360),     //gives direction as 0 - 359 degrees
@@ -381,7 +383,7 @@ void setCurHeading(int msecs){
       headingData[i] = Wire.receive();
       i++;
     }//end while
-    headingValue = headingData[0]*256 + headingData[1];  //put MSB and LSB together
+    headingValue    = headingData[0]*256 + headingData[1];  //put MSB and LSB together
     avgHeadingValue = abs(avgHeadingValue + headingValue);
     delay(msecs);
   }//end for
